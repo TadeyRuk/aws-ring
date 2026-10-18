@@ -1,0 +1,18 @@
+---
+description: Commits have one human author and never a co-author trailer
+alwaysApply: true
+---
+
+# No co-authorship
+
+A commit has one author: the human already set in this repo's git author. Do not add a second author.
+
+- Never add `Co-authored-by`, including `Co-authored-by: Cursor <cursoragent@cursor.com>`.
+- Never add an agent, Cursor, or another person on `Signed-off-by`.
+- Do not change git config, and do not invent an author name or email.
+
+```text
+Add Door Interpreter so a doorbell can be read as a picture, a caption, and one scene line.
+```
+
+If a trailer appears after the commit is written, remove it before pushing. Do not push a commit that contains `Co-authored-by`.

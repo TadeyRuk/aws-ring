@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Door Interpreter</title>
+<style>
+  :root {
+    --bg:#14110d;
+    --ink:#f4efe6;
+    --muted:#b3a89a;
+    --line:#3c342b;
+    --amber:#ffc857;
+    --panel:#221c16;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:"Avenir Next",Avenir,"Gill Sans","Trebuchet MS",sans-serif;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    margin:0;
+    color:var(--ink);
+    font:18px/1.35 var(--sans);
+    background:
+      radial-gradient(900px 380px at 78% -10%, rgba(255,200,87,.16), transparent 55%),
+      var(--bg);
+  }
+  body.visitor {
+    background:
+      radial-gradient(1100px 520px at 72% -8%, rgba(255,200,87,.42), transparent 58%),
+      var(--bg);
+  }
+  body.motion {
+    background:
+      radial-gradient(900px 420px at 72% -8%, rgba(232,220,196,.2), transparent 58%),
+      var(--bg);
+  }
+  header, main, #dock, #tonight { padding-left:28px; padding-right:28px; }
+  header {
+    display:flex; justify-content:space-between; align-items:center;
+    padding-top:22px; padding-bottom:8px;
+  }
+  .mark { font-family:var(--serif); font-size:22px; letter-spacing:-.02em; }
+  .mark em { font-style:italic; font-weight:500; }
+  #status {
+    color:var(--muted); font-size:14px; max-width:280px; text-align:right;
+    border:1px solid var(--line); border-radius:999px; padding:6px 12px;
+  }
+  main {
+    display:grid; grid-template-columns:minmax(280px,1.15fr) minmax(260px,.85fr);
+    gap:36px; align-items:center; padding-top:12px; padding-bottom:12px;
+  }
+  .frame {
+    background:#070605;
+    border-radius:28px;
+    padding:10px;
+    box-shadow:inset 0 0 0 1px #8d6b34, 0 24px 60px rgba(0,0,0,.35);
+  }
+  video {
+    display:block; width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:20px;
+    background:
+      radial-gradient(circle at 50% 42%, #3a2e22 0, #120e0b 62%);
+  }
+  .kicker {
+    margin:0 0 10px; color:var(--muted); font-size:12px; letter-spacing:.22em; text-transform:uppercase;
+  }
+  #hero {
+    margin:0; font-family:var(--serif); font-weight:560; letter-spacing:-.03em;
+    font-size:clamp(40px, 5.4vw, 76px); line-height:.96;
+  }
+  #hero.visitor { color:#1a1203; background:var(--amber); padding:10px 16px 14px; animation:flash .7s 5; }
+  #hero.motion { color:var(--ink); }
+  @keyframes flash { 50% { background:transparent; color:var(--amber); } }
+  #caption {
+    margin:22px 0 0; font-size:clamp(26px, 3vw, 40px); font-weight:650; letter-spacing:-.03em; line-height:1.15;
+  }
+  #caption:empty { display:none; }
+  #scene { margin:14px 0 0; color:#ddd2c3; font-size:20px; }
+  #scene:empty { display:none; }
+  #dock { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding-bottom:8px; }
+  #dev { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  button { font:inherit; cursor:pointer; }
+  button.act {
+    border:0; border-radius:999px; padding:12px 18px; background:var(--ink); color:#1a140c; font-weight:650;
+  }
+  button.ghost { background:transparent; color:var(--ink); box-shadow:inset 0 0 0 1.5px #6a5e51; }
+  button.demo {
+    border:0; background:transparent; color:var(--muted); font-size:15px;
+    text-decoration:underline; text-underline-offset:3px; padding:8px 2px;
+  }
+  #tonight { padding-bottom:28px; }
+  #tonight h2 {
+    margin:18px 0 0; color:var(--muted); font-size:12px; font-weight:600;
+    letter-spacing:.18em; text-transform:uppercase;
+  }
+  ul { list-style:none; margin:8px 0 0; padding:0; max-width:720px; }
+  li { display:flex; gap:12px; align-items:baseline; padding:10px 0; border-top:1px solid var(--line); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex:none; }
+  .visitor .dot { background:var(--amber); }
+  .motion .dot { background:#e7d7c3; }
+  li div { flex:1; display:flex; justify-content:space-between; gap:16px; align-items:baseline; }
+  time { flex:none; }
+  time { color:var(--muted); font-size:14px; }
+  @media (max-width:800px) {
+    header, main, #dock, #tonight { padding-left:16px; padding-right:16px; }
+    main { grid-template-columns:1fr; gap:22px; }
+    #hero { font-size:44px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #hero.visitor { animation:none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark">Door <em>Interpreter</em></div>
+  <span id="status">connecting…</span>
+</header>
+<main>
+  <div class="frame"><video id="view" autoplay playsinline muted></video></div>
+  <section id="read">
+    <p class="kicker">At the door</p>
+    <h2 id="hero" aria-live="assertive">Waiting for the door…</h2>
+    <p id="caption" aria-live="polite"></p>
+    <p id="scene" aria-live="polite"></p>
+  </section>
+</main>
+<div id="dock"><div id="dev"></div></div>
+<section id="tonight">
+  <h2>Tonight</h2>
+  <ul id="log"></ul>
+</section>
+<script>
+const hero = document.getElementById('hero');
+const log = document.getElementById('log');
+const st = document.getElementById('status');
+const view = document.getElementById('view');
+const caption = document.getElementById('caption');
+const scene = document.getElementById('scene');
+let pc = null;
+let sessionUrl = null;
+let capTimer = null;
+let hearTimer = null;
+let audioCtx = null;
+
+function show(a) {
+  document.body.className = a.level;
+  hero.className = a.level;
+  hero.textContent = a.headline;
+  if (navigator.vibrate) navigator.vibrate(a.level === 'visitor' ? [300,100,300,100,300] : [150]);
+  const li = document.createElement('li');
+  li.className = a.level;
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  const body = document.createElement('div');
+  body.textContent = a.headline + (a.detail ? ' — ' + a.detail : '');
+  const t = document.createElement('time');
+  t.textContent = new Date(a.created_ms).toLocaleTimeString();
+  body.appendChild(t);
+  li.append(dot, body);
+  log.prepend(li);
+  if (a.level === 'visitor') startLive();
+}
+
+function preferH264(transceiver) {
+  if (!window.RTCRtpSender || !RTCRtpSender.getCapabilities || !transceiver.setCodecPreferences) return false;
+  const caps = RTCRtpSender.getCapabilities('video');
+  const h264 = (caps.codecs || []).filter(c => /h264/i.test(c.mimeType));
+  if (!h264.length) return false;
+  transceiver.setCodecPreferences(h264);
+  return true;
+}
+
+function waitIce(conn) {
+  return new Promise(resolve => {
+    if (conn.iceGatheringState === 'complete') return resolve();
+    const timer = setTimeout(resolve, 4000);
+    conn.onicegatheringstatechange = () => {
+      if (conn.iceGatheringState === 'complete') { clearTimeout(timer); resolve(); }
+    };
+  });
+}
+
+function wavBlob(samples, rate) {
+  const bytes = new ArrayBuffer(44 + samples.length * 2);
+  const v = new DataView(bytes);
+  const write = (offset, text) => { for (let i = 0; i < text.length; i++) v.setUint8(offset + i, text.charCodeAt(i)); };
+  write(0, 'RIFF');
+  v.setUint32(4, 36 + samples.length * 2, true);
+  write(8, 'WAVE');
+  write(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  write(36, 'data');
+  v.setUint32(40, samples.length * 2, true);
+  let offset = 44;
+  for (const sample of samples) {
+    const clamped = Math.max(-1, Math.min(1, sample));
+    v.setInt16(offset, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+    offset += 2;
+  }
+  return new Blob([bytes], { type: 'audio/wav' });
+}
+
+function downsample(input, inRate, outRate) {
+  if (inRate === outRate) return input;
+  const ratio = inRate / outRate;
+  const out = new Float32Array(Math.floor(input.length / ratio));
+  for (let i = 0; i < out.length; i++) out[i] = input[Math.floor(i * ratio)];
+  return out;
+}
+
+function listenTo(track) {
+  const ctx = audioCtx || new AudioContext();
+  audioCtx = ctx;
+  ctx.resume().catch(() => {});
+  const stream = new MediaStream([track]);
+  const source = ctx.createMediaStreamSource(stream);
+  const proc = ctx.createScriptProcessor(4096, 1, 1);
+  const pending = [];
+  let pendingSamples = 0;
+  const rate = 16000;
+  proc.onaudioprocess = (event) => {
+    const down = downsample(event.inputBuffer.getChannelData(0), ctx.sampleRate, rate);
+    pending.push(down);
+    pendingSamples += down.length;
+    if (pendingSamples < rate * 4) return;
+    const merged = new Float32Array(pendingSamples);
+    let offset = 0;
+    pending.forEach(chunk => { merged.set(chunk, offset); offset += chunk.length; });
+    pending.length = 0;
+    pendingSamples = 0;
+    let energy = 0;
+    for (const sample of merged) energy += sample * sample;
+    if (energy / merged.length < 0.00008) return;
+    fetch('/api/captions', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wavBlob(merged, rate) })
+      .then(r => r.json())
+      .then(data => { if (data.text) caption.textContent = data.text; })
+      .catch(() => {});
+  };
+  const silent = ctx.createGain();
+  silent.gain.value = 0;
+  source.connect(proc);
+  proc.connect(silent);
+  silent.connect(ctx.destination);
+}
+
+async function describeDoor() {
+  const ring = await fetch('/api/scene/ring', { method: 'POST' });
+  if (ring.ok) {
+    const data = await ring.json();
+    if (data.sentence) scene.textContent = data.sentence;
+    return;
+  }
+  if (!view.videoWidth) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = view.videoWidth;
+  canvas.height = view.videoHeight;
+  canvas.getContext('2d').drawImage(view, 0, 0);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+  if (!blob) return;
+  const res = await fetch('/api/scene', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+  if (!res.ok) return;
+  const data = await res.json();
+  if (data.sentence) scene.textContent = data.sentence;
+}
+
+async function stopLive() {
+  clearTimeout(capTimer);
+  capTimer = null;
+  clearInterval(hearTimer);
+  if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+  if (pc) { pc.close(); pc = null; }
+  view.srcObject = null;
+  if (sessionUrl) {
+    const url = sessionUrl;
+    sessionUrl = null;
+    await fetch('/api/live/close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_url: url }),
+    }).catch(() => {});
+  }
+}
+
+async function startLive() {
+  if (pc) return;
+  if (!audioCtx) audioCtx = new AudioContext();
+  audioCtx.resume().catch(() => {});
+  st.textContent = 'opening the door…';
+  const conn = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  pc = conn;
+  const video = conn.addTransceiver('video', { direction: 'recvonly' });
+  conn.addTransceiver('audio', { direction: 'recvonly' });
+  if (!preferH264(video)) {
+    st.textContent = 'This browser has no H264 encoder. Chrome or Safari can open the door.';
+    pc = null;
+    conn.close();
+    return;
+  }
+  conn.ontrack = (e) => {
+    if (e.streams[0]) view.srcObject = e.streams[0];
+    if (e.track && e.track.kind === 'audio') listenTo(e.track);
+    if (e.track && e.track.kind === 'video') setTimeout(describeDoor, 2500);
+  };
+  try {
+    await conn.setLocalDescription(await conn.createOffer());
+    await waitIce(conn);
+    const res = await fetch('/api/live/offer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body: conn.localDescription.sdp,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Live view failed');
+    sessionUrl = data.session_url;
+    await conn.setRemoteDescription({ type: 'answer', sdp: data.sdp });
+    st.textContent = 'at the door';
+    capTimer = setTimeout(() => { stopLive(); st.textContent = 'live view ended'; }, 55000);
+  } catch (err) {
+    st.textContent = /credential/i.test(err.message || '') ? 'Needs a Playground token' : (err.message || 'Live view failed');
+    await stopLive();
+  }
+}
+
+const es = new EventSource('/stream');
+es.onopen = () => { if (!pc) st.textContent = 'live'; };
+es.onerror = () => { if (!pc) st.textContent = 'reconnecting…'; };
+es.onmessage = e => {
+  const m = JSON.parse(e.data);
+  if (m.kind === 'alert') show(m);
+  if (m.kind === 'caption' && m.text) caption.textContent = m.text;
+  if (m.kind === 'scene' && m.text) scene.textContent = m.text;
+};
+window.addEventListener('pagehide', () => { if (sessionUrl) navigator.sendBeacon('/api/live/close', new Blob([JSON.stringify({ session_url: sessionUrl })], { type: 'application/json' })); });
+
+const watch = document.createElement('button');
+watch.className = 'act';
+watch.textContent = 'Watch the door';
+watch.onclick = () => startLive();
+const what = document.createElement('button');
+what.className = 'act ghost';
+what.textContent = 'What is there';
+what.onclick = () => describeDoor();
+const listen = document.createElement('button');
+listen.className = 'act ghost';
+listen.textContent = 'Listen';
+listen.onclick = () => { view.muted = !view.muted; listen.textContent = view.muted ? 'Listen' : 'Mute'; };
+document.getElementById('dev').append(watch, what, listen);
+[['Ring the bell','button_press'],['Motion','motion_detected']].forEach(([label, kind]) => {
+  const b = document.createElement('button');
+  b.className = 'demo';
+  b.textContent = label;
+  b.onclick = () => fetch('/dev/mock/' + kind, { method: 'POST' });
+  document.getElementById('dev').appendChild(b);
+});
+</script>
+</body>
+</html>

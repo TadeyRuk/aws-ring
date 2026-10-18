@@ -6,11 +6,11 @@ Track repo for the Amazon Developer Hackathon. This folder is the whole project:
 - **Deadline:** 23 Oct 2026, 12:00 PM PT
 - **Track:** A new or extended app on Ring APIs, SDKs, simulators, or devices. Sponsor themes include access control, business systems, home automation, accessibility, and caretaking. Facial recognition and license-plate reading are out.
 
-## Recommended build
+## Build
 
-**SignSync** — doorbell video is reduced to hand and body landmarks, and the sign is sent to the resident as text. Faces are dropped. Rubric total 37, ahead of AuraDoor (34) and HapticHome (30).
+**Door Interpreter** — a deaf or hard-of-hearing resident reads the door. A ring flashes a high-contrast alert, the live picture plays, the visitor's words become a caption, and one sentence says what is there. The sentence is chosen from a fixed list, so nobody is identified.
 
-The report's own formula is about $460k a year (1% of an estimated Ring-reachable base at $7.99). The executive summary also says $45M, which does not match that formula. Switch to AuraDoor if the RTSP stream is too unstable for frame analysis, or if translation takes more than 3 seconds.
+The research report recommended SignSync. The Ring docs and the Playground device changed that: streams are receive-only, this doorbell speaks H264 only, and it cannot talk back. Sign recognition is not in this build.
 
 ## Docs
 
@@ -20,3 +20,22 @@ The report's own formula is about $460k a year (1% of an estimated Ring-reachabl
 | [ORG.md](ORG.md) | Amazon, AWS, and device-team goals, copied so this repo stands alone |
 | [PROMPT.md](PROMPT.md) | Deep-research prompt for this track |
 | [SignSync-AI-Deep-Research-Report.md](SignSync-AI-Deep-Research-Report.md) | Research report and the three pitches |
+
+## Run
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cp .env.example .env            # optional: RING_ACCESS_TOKEN from the Playground
+.venv/bin/python -m pytest -q
+sh scripts/demo.sh              # http://localhost:8000
+```
+
+Press **Simulate: Doorbell**. With a Playground token in `.env`, **Watch the door** opens the live view. The offer must be receive-only H264; a VP8 offer gets a 500 from Ring. **What is there** turns a snapshot into one sentence. Captions and that sentence use macOS speech and vision.
+
+`src/ringdoor/` is the FastAPI service. Events share one path: `mock` (no Ring needed), `poll` (Playground token), `webhook` (HMAC-verified, idempotent).
+
+```bash
+.venv/bin/python scripts/ring_probe.py --token "<playground token>"
+```
+
+**Verified against Ring (2026-10-18):** WHEP, `recvonly`, H264, max 30 s (battery) / 60 s (line-powered). No talkback. Audio playback is for chimes. Webhooks use `X-Signature: sha256=<hex HMAC of raw body>`, must return 200 in 5 s, and the URL is set during partner onboarding. The Playground device is an online Doorbell Pro with an empty event history. Submission copy and the friction log are in [SUBMISSION.md](SUBMISSION.md).
